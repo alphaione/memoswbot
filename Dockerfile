@@ -48,6 +48,7 @@ VOLUME /var/opt/memos
 EXPOSE 5230
 ENV MEMOS_MODE=prod
 ENV MEMOS_PORT=5230
+ENV SERVER_ADDR=dns:localhost:5230
 ENV BOT_TOKEN=your_telegram_bot_token
 
 ENTRYPOINT ["sh","-c", "\
