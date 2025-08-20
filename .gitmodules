@@ -1,0 +1,8 @@
+[submodule "memos"]
+	path = memos
+	url = https://github.com/usememos/memos
+	branch = main
+[submodule "memogram"]
+	path = memogram
+	url = https://github.com/usememos/telegram-integration
+	branch = main
