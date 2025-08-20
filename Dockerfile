@@ -27,6 +27,6 @@ RUN chmod +x /entrypoint.sh
 # 4) 暴露端口
 EXPOSE 5230
 # 5) 直接运行，无 shell
-ENTRYPOINT ["./entrypoint.sh", "./memos"]
+ENTRYPOINT ["./memos"]
 # memos 默认会把 sqlite 数据写在 /data，使用卷挂载即可
 VOLUME ["/data"]
