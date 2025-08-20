@@ -1,32 +1,46 @@
-# ---------- Stage 1: 编译 Memos ----------
-FROM golang:alpine AS memos-builder
-WORKDIR /src/memos
+###############################################################################
+# 1) 统一编译阶段
+###############################################################################
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /build/memos
+COPY memos/go.mod memos/go.sum ./
+RUN go mod download
 COPY memos/ .
-# 静态编译，生成无依赖二进制
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o memos ./cmd/memos
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o memos ./bin/memos/main.go
 
-# ---------- Stage 2: 编译 Memogram ----------
-FROM node:18-alpine AS memogram-builder
-WORKDIR /src/memogram
+WORKDIR /build/memogram
+COPY memogram/go.mod memogram/go.sum ./
+RUN go mod download
 COPY memogram/ .
-RUN npm ci --production && npm run build
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o memogram ./bin/memogram
 
-# ---------- Stage 3: 运行阶段 ----------
+###############################################################################
+# 2) 运行阶段：alpine 极简版
+###############################################################################
 FROM alpine:latest
-WORKDIR /
-# 只安装必要工具
-RUN apk --no-cache add ca-certificates
-# 2) 拷贝二进制
-COPY --from=memos-builder /src/memos/memos /memos
 
-# 3) 拷贝前端静态文件
-COPY --from=memogram-builder /src/memogram/dist /www
+RUN set -eux; \
+    apk add --no-cache tzdata; \
+    rm -rf /var/cache/apk/* /tmp/*
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-# 4) 暴露端口
+WORKDIR /usr/local/memos
+
+COPY --from=builder /build/memos/memos       ./
+COPY --from=builder /build/memogram/memogram /usr/local/bin/memogram
+COPY memos/scripts/entrypoint.sh             ./
+
+RUN mkdir -p /var/opt/memos
+VOLUME /var/opt/memos
+
 EXPOSE 5230
-# 5) 直接运行，无 shell
-ENTRYPOINT ["./memos"]
-# memos 默认会把 sqlite 数据写在 /data，使用卷挂载即可
-VOLUME ["/data"]
+ENV MEMOS_MODE=prod
+ENV MEMOS_PORT=5230
+ENV BOT_TOKEN=your_telegram_bot_token
+
+ENTRYPOINT ["sh","-c", "\
+  ./entrypoint.sh ./memos & MEMOS_PID=$!; \
+  [ -n \"$BOT_TOKEN\" ] && /usr/local/bin/memogram & MEMOGRAM_PID=$!; \
+  trap 'kill -TERM $MEMOS_PID ${MEMOGRAM_PID:-}; wait' TERM; \
+  wait \
+"]
