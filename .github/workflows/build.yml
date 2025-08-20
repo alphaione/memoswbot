@@ -1,0 +1,82 @@
+name: Memos with bot构建 | Multiarch Memos with bot Build
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每日自动同步
+  workflow_dispatch:
+
+env:
+  PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔄 检出代码Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 🏷️ 准备环境 | Prepare Environment
+        id: prep
+        run: |
+          VERSION=$(curl -s "https://api.github.com/repos/usememos/memos/releases/latest" | jq -r '.tag_name')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: ⏩ 检查版本是否需要构建 | Check If Build Needed
+        id: version-check
+        run: |
+          NEW_VERSION="${{ steps.prep.outputs.version }}"
+          OLD_VERSION=$(cat version)
+          if [ "$NEW_VERSION" = "$OLD_VERSION" ]; then
+            echo "skip_build=true" >> $GITHUB_OUTPUT
+            echo "版本未变化，跳过构建。"
+          else
+            echo "skip_build=false" >> $GITHUB_OUTPUT
+            echo "版本发生变化，继续构建。"
+          fi
+
+      - name: Pull latest submodules
+        run: git submodule update --remote --merge
+
+      - name: 🛠️ 配置 Docker Buildx | Setup Docker Buildx
+        if: steps.version-check.outputs.skip_build == 'false'
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 登录 Docker Hub | Login to Docker Hub
+        if: steps.version-check.outputs.skip_build == 'false'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🚀 构建并推送镜像 | Build and Push Image
+        if: steps.version-check.outputs.skip_build == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          build-args: |
+            VERSION=${{ steps.prep.outputs.version }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/memoswbot:${{ steps.prep.outputs.version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/memoswbot:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+
+      - name: ✅ 完成并输出信息 | Complete and Print Info
+        if: steps.version-check.outputs.skip_build == 'false'
+        run: |
+          echo "Memos with bot 镜像已构建并推送, 版本: ${{ steps.prep.outputs.version }}"
+          echo "Memos with bot image has been built and pushed, version: ${{ steps.prep.outputs.version }}"
+
+      - name: 📝 写入版本号到 caddy.version 文件 | Write Version to File
+        if: steps.version-check.outputs.skip_build == 'false'
+        run: |
+          echo "${{ steps.prep.outputs.version }}" > version
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version
+          git commit -m "chore: update version file to memoswbot ${{ steps.prep.outputs.version }}"
+          git push
