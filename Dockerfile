@@ -1,12 +1,24 @@
 ###############################################################################
 # 1) 统一编译阶段
 ###############################################################################
+FROM node:20-alpine AS frontend
+WORKDIR /build
+# 1. 装 pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+# 2. 拷前端目录
+COPY memos ./memos
+# 3. 安装依赖 & 构建
+WORKDIR /build/memos/web
+RUN pnpm install --frozen-lockfile
+RUN pnpm release
+
 FROM golang:1.24-alpine AS builder
 
 WORKDIR /build/memos
 COPY memos/go.mod memos/go.sum ./
 RUN go mod download
 COPY memos/ .
+COPY --from=frontend /build/memos/server/router/frontend/dist ./server/router/frontend/dist
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o memos ./bin/memos/main.go
 
 WORKDIR /build/memogram
