@@ -1,7 +1,7 @@
 ###############################################################################
 # 1) 统一编译阶段
 ###############################################################################
-FROM node:20-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:20-alpine AS frontend
 WORKDIR /build
 # 1. 装 pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
