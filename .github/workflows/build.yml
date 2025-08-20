@@ -2,7 +2,7 @@ name: Memos with bot构建 | Multiarch Memos with bot Build
 
 on:
   schedule:
-    - cron: '0 0 * * *' # 每日自动同步
+    - cron: '0 16 * * *' # 每日自动同步
   workflow_dispatch:
 
 env:
@@ -36,8 +36,26 @@ jobs:
             echo "版本发生变化，继续构建。"
           fi
 
-      - name: Pull latest submodules
-        run: git submodule update --remote --merge
+      - name: 🔃 拉取最新子模块 | Pull Latest tag
+        run: |
+          set -e
+          for sub in memos memogram; do
+            echo ">>> Processing $sub"
+            cd "$sub"
+            git fetch --tags --force
+            latest_tag=$(git describe --tags "$(git rev-list --tags --max-count=1)")
+            git checkout "$latest_tag"
+            echo "Checked out $sub @ $latest_tag"
+            cd ..
+            git add "$sub"
+          done
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "ci: bump submodules to latest tags" || true
+          git push || true
 
       - name: 🛠️ 配置 Docker Buildx | Setup Docker Buildx
         if: steps.version-check.outputs.skip_build == 'false'
@@ -71,7 +89,7 @@ jobs:
           echo "Memos with bot 镜像已构建并推送, 版本: ${{ steps.prep.outputs.version }}"
           echo "Memos with bot image has been built and pushed, version: ${{ steps.prep.outputs.version }}"
 
-      - name: 📝 写入版本号到 caddy.version 文件 | Write Version to File
+      - name: 📝 写入版本号到 version 文件 | Write Version to File
         if: steps.version-check.outputs.skip_build == 'false'
         run: |
           echo "${{ steps.prep.outputs.version }}" > version
