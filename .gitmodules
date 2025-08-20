@@ -1,0 +1,6 @@
+[submodule "memos"]
+	path = memos
+	url = https://github.com/usememos/memos
+[submodule "memogram"]
+	path = memogram
+	url = https://github.com/usememos/telegram-integration
