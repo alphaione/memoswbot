@@ -2,25 +2,21 @@
 # 1) 统一编译阶段
 ###############################################################################
 FROM --platform=$BUILDPLATFORM node:20-alpine AS frontend
-WORKDIR /build
-# 1. 装 pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-# 2. 拷前端目录
-COPY memos ./memos
-# 3. 安装依赖 & 构建
 WORKDIR /build/memos/web
-RUN pnpm install --frozen-lockfile
-RUN pnpm release
-
+COPY memos/web ./
+RUN corepack enable && corepack prepare pnpm@latest --activate && \
+    pnpm install --frozen-lockfile && \
+    pnpm release && \
+    rm -rf ~/.pnpm-store
+# 后端构建
 FROM golang:1.24-alpine AS builder
-
 WORKDIR /build/memos
 COPY memos/go.mod memos/go.sum ./
 RUN go mod download
 COPY memos/ .
 COPY --from=frontend /build/memos/server/router/frontend/dist ./server/router/frontend/dist
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o memos ./bin/memos/main.go
-
+# memogram
 WORKDIR /build/memogram
 COPY memogram/go.mod memogram/go.sum ./
 RUN go mod download
@@ -32,8 +28,7 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o memogram ./bin/memogram
 ###############################################################################
 FROM alpine:latest
 
-RUN set -eux; \
-    apk add --no-cache tzdata; \
+RUN apk add --no-cache tzdata && \
     rm -rf /var/cache/apk/* /tmp/*
 
 WORKDIR /usr/local/memos
@@ -46,10 +41,10 @@ RUN mkdir -p /var/opt/memos
 VOLUME /var/opt/memos
 
 EXPOSE 5230
-ENV MEMOS_MODE=prod
-ENV MEMOS_PORT=5230
-ENV SERVER_ADDR=dns:localhost:5230
-ENV BOT_TOKEN=your_telegram_bot_token
+ENV MEMOS_MODE=prod \
+	MEMOS_PORT=5230 \
+	SERVER_ADDR=dns:localhost:5230 \
+	BOT_TOKEN=your_telegram_bot_token
 
 ENTRYPOINT ["sh","-c", "\
   ./entrypoint.sh ./memos & MEMOS_PID=$!; \
