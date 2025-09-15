@@ -14,8 +14,8 @@ FROM golang:1.25-alpine AS backend
 WORKDIR /build/memos
 COPY memos/go.mod memos/go.sum ./
 RUN go mod download
+COPY --from=frontend /build/memos/web/dist ./web/dist
 COPY memos/ .
-COPY --from=frontend /build/memos/web ./web
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o memos ./bin/memos/main.go
 # memosgram构建
 FROM golang:1.25-alpine AS builder
