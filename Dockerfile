@@ -30,7 +30,7 @@ FROM alpine:latest
 WORKDIR /usr/local/memos
 RUN apk add --no-cache tzdata && \
     rm -rf /var/cache/apk/* /tmp/*
-COPY --from=backend /build/memos/memos /usr/local/memos/memos
+COPY --from=backend /build/memos /usr/local/memos/
 COPY entrypoint.sh /usr/local/memos/
 RUN chmod +x /usr/local/memos/entrypoint.sh
 COPY --from=builder /build/memogram/memogram /usr/local/memos/memogram
