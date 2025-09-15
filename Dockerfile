@@ -2,7 +2,7 @@
 # memos构建
 ###############################################################################
 # 1)memos前端构建
-FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
+FROM node:22-alpine AS frontend
 WORKDIR /build/memos/web
 COPY memos/web ./
 RUN corepack enable && \
@@ -15,7 +15,7 @@ WORKDIR /build/memos
 COPY memos/go.mod memos/go.sum ./
 RUN go mod download
 COPY memos/ .
-COPY --from=frontend /build/memos/web/dist ./web/dist
+COPY --from=frontend /build/memos/server/router/frontend/dist ./server/router/frontend/dist
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o memos ./bin/memos/main.go
 # memosgram构建
 FROM golang:1.25-alpine AS builder
