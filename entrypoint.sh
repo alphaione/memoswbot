@@ -26,22 +26,26 @@ file_env() {
 # --------- 处理 MEMOS_DSN 的文件变量 ---------
 file_env "MEMOS_DSN"
 
-# --------- memogram 启动逻辑 ---------
+# ========= 新增：3 秒后条件启动 memogram =========
+./memos &
+MEMOS_PID=$!
+
+sleep 3        # 固定 3 秒延迟
+
 if [ -n "$BOT_TOKEN" ]; then
-   echo "Starting memogram ..."
-   ./memogram &
-   MEMOGRAM_PID=$!
-   trap 'kill -TERM $MEMOGRAM_PID' EXIT
+  echo "Starting memogram after 3s ..."
+  ./memogram &
+  MEMOGRAM_PID=$!
+  trap 'kill -TERM $MEMOS_PID $MEMOGRAM_PID' EXIT
 else
-   cat <<WARN
+  cat <<WARN
 =======================================================
 memogram 未启动！
 如需启用 memogram，请重新运行容器并添加环境变量：
    -e BOT_TOKEN=<your_bot_token>
 =======================================================
 WARN
+  trap 'kill -TERM $MEMOS_PID' EXIT
 fi
 
-# --------- 前台启动 memos，成为 PID 1 ---------
-echo "Starting memos ..."
-exec "$@"
+wait $MEMOS_PID
