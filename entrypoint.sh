@@ -27,6 +27,8 @@ file_env() {
 file_env "MEMOS_DSN"
 
 # ========= 新增：3 秒后条件启动 memogram =========
+./memos &
+MEMOS_PID=$!
 
 sleep 3        # 固定 3 秒延迟
 
