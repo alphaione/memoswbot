@@ -2,7 +2,7 @@
 # memos构建
 ###############################################################################
 # 1)memos前端构建
-FROM node:22-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
 WORKDIR /build/memos/web
 COPY memos/web ./
 RUN corepack enable && \
