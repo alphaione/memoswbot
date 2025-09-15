@@ -18,7 +18,7 @@ COPY --from=frontend /build/memos/web ./web
 COPY memos/ .
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o memos ./bin/memos/main.go
 # memosgram构建
-FROM cgr.dev/chainguard/go:latest AS builder
+FROM chainguard/go:latest AS builder
 WORKDIR /build/memogram
 COPY memogram/go.mod memogram/go.sum ./
 RUN go mod download
