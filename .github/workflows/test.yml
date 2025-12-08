@@ -1,0 +1,92 @@
+name: Memos with bot构建 | Multiarch Memos with bot Build
+
+on:
+  # schedule:
+  #   - cron: '0 16 * * *' # 每日自动同步
+  workflow_dispatch:
+
+env:
+  PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/386
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔄 检出代码Checkout
+        uses: actions/checkout@v6.0.1
+        with:
+          submodules: recursive
+
+      - name: 🏷️ 准备环境 | Prepare Environment
+        id: prep
+        run: |
+          VERSION=$(curl -s "https://api.github.com/repos/usememos/memos/releases/latest" | jq -r '.tag_name')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: ⏩ 检查版本是否需要构建 | Check If Build Needed
+        id: version-check
+        run: |
+          NEW_VERSION="${{ steps.prep.outputs.version }}"
+          OLD_VERSION=$(cat version)
+          if [ "$NEW_VERSION" = "$OLD_VERSION" ]; then
+            echo "skip_build=true" >> $GITHUB_OUTPUT
+            echo "版本未变化，跳过构建。"
+          else
+            echo "skip_build=false" >> $GITHUB_OUTPUT
+            echo "版本发生变化，继续构建。"
+          fi
+
+      - name: 🔃 拉取最新子模块 | Pull Latest tag
+        run: |
+          set -e
+          for sub in memos memogram; do
+            echo ">>> Processing $sub"
+            cd "$sub"
+            git fetch --tags --force
+            latest_tag=$(git describe --tags "$(git rev-list --tags --max-count=1)")
+            git checkout "$latest_tag"
+            echo "Checked out $sub @ $latest_tag"
+            cd ..
+            git add "$sub"
+          done
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "ci: bump submodules to latest tags" || true
+          git push || true
+
+      - name: 🔐 登录 Docker Hub | Login to Docker Hub
+        if: steps.version-check.outputs.skip_build == 'false'
+        uses: docker/login-action@v3.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          
+      - name: 🛠️ 配置 QEMU | Set up QEMU
+        uses: docker/setup-qemu-action@v3.7.0
+     
+      - name: 🛠️ 配置 Docker Buildx | Setup Docker Buildx
+        if: steps.version-check.outputs.skip_build == 'false'
+        uses: docker/setup-buildx-action@v3.11.1
+
+      - name: 🚀 构建并推送镜像 | Build and Push Image
+        if: steps.version-check.outputs.skip_build == 'false'
+        uses: docker/build-push-action@v6.18.0
+        with:
+          context: .
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          build-args: |
+            VERSION=${{ steps.prep.outputs.version }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/test:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+
+      - name: ✅ 完成并输出信息 | Complete and Print Info
+        if: steps.version-check.outputs.skip_build == 'false'
+        run: |
+          echo "Memos with bot 镜像已构建并推送, 版本: ${{ steps.prep.outputs.version }}"
+          echo "Memos with bot image has been built and pushed, version: ${{ steps.prep.outputs.version }}"
