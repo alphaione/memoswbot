@@ -90,3 +90,13 @@ jobs:
         run: |
           echo "Memos with bot 镜像已构建并推送, 版本: ${{ steps.prep.outputs.version }}"
           echo "Memos with bot image has been built and pushed, version: ${{ steps.prep.outputs.version }}"
+
+      - name: 📝 写入版本号到 version 文件 | Write Version to File
+        if: steps.version-check.outputs.skip_build == 'false'
+        run: |
+          echo "${{ steps.prep.outputs.version }}" > version
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version
+          git commit -m "chore: update version file to memoswbot ${{ steps.prep.outputs.version }}"
+          git push
