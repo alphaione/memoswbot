@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 🔄 检出代码Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.1
         with:
           submodules: recursive
 
