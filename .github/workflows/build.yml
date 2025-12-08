@@ -50,12 +50,12 @@ jobs:
             git add "$sub"
           done
 
-      - name: Commit & push if changed
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "ci: bump submodules to latest tags" || true
-          git push || true
+      # - name: Commit & push if changed
+      #   run: |
+      #     git config user.name  "github-actions[bot]"
+      #     git config user.email "github-actions[bot]@users.noreply.github.com"
+      #     git commit -m "ci: bump submodules to latest tags" || true
+      #     git push || true
 
       - name: 🔐 登录 Docker Hub | Login to Docker Hub
         if: steps.version-check.outputs.skip_build == 'false'
